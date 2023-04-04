@@ -4,6 +4,17 @@ Only backs up the record data, table schemas and attachments.
 
 Does not back up interfaces and automations.
 
+## Requirements
+
+To run this you need:
+
+* Python 3
+* `python-dotenv` module
+* `pyairtable` module
+* `requests` module
+
+Installed by running `python -m pip install python-dotenv requests pyairtable`
+
 ## Set up
 
 1. Go to [https://airtable.com/create/tokens](https://airtable.com/create/tokens)
