@@ -7,10 +7,14 @@ import requests
 
 dotenv.load_dotenv()
 
-backup_dir = f"./backups/{datetime.now()}"
+backup_parent_dir = os.path.join(os.getcwd(), "backups")
+if not os.path.exists(backup_parent_dir):
+    os.makedirs(backup_parent_dir)
+
+backup_dir = os.path.join(os.getcwd(), "backups", str(datetime.now().strftime("%Y%m%d-%H%M%S")))
 
 os.makedirs(backup_dir)
-os.makedirs(f"{backup_dir}/records")
+os.makedirs(os.path.join(backup_dir, "records"))
 
 api = pyairtable.Api(os.environ.get("AIRTABLE_ACCESS_TOKEN"))
 
@@ -22,14 +26,14 @@ for base in bases:
     print(f"{base['name']}")
 
     # Create folder for base
-    base_folder_name = f"{backup_dir}/records/{base['id']} ({base['name']})"
+    base_folder_name = os.path.join(backup_dir, "records", f"{base['id']} ({base['name']})")
     if not os.path.exists(base_folder_name):
         os.makedirs(base_folder_name)
 
     # Get base schema
     tables = api._request('get', f"https://api.airtable.com/v0/meta/bases/{ base['id'] }/tables")['tables']
     
-    with open(f'{base_folder_name}/metadata.json', 'w+') as base_metadata_file:
+    with open(os.path.join(base_folder_name, 'metadata.json'), 'w+') as base_metadata_file:
         # Create metadata file for base
         base_metadata_file.write(json.dumps(tables))
     
@@ -39,7 +43,7 @@ for base in bases:
         # Get list of attachment fields
         attachment_fields = [f for f in table['fields'] if f['type'] == 'multipleAttachments']
 
-        table_folder = f"{base_folder_name}/{table['id']} ({table['name']})"
+        table_folder = os.path.join(base_folder_name, f"{table['id']} ({table['name']})")
         if not os.path.exists(table_folder):
             os.makedirs(table_folder)
 
@@ -47,11 +51,12 @@ for base in bases:
         table_records = api.all(base['id'], table['id'])
 
         # Write file with all records as json
-        with open(f"{table_folder}/data.json", 'w+') as table_records_file:
+        os.path.join(table_folder, "data.json")
+        with open(os.path.join(table_folder, "data.json"), 'w+') as table_records_file:
             table_records_file.write(json.dumps(table_records))
        
         # * Write metadata file with views and schema
-        with open(f"{table_folder}/metadata.json", 'w+') as table_meta_file:
+        with open(os.path.join(table_folder, "metadata.json"), 'w+') as table_meta_file:
             table_meta_file.write(json.dumps(table))
 
         # Extract all attachment objects to list
@@ -64,25 +69,26 @@ for base in bases:
                         row_attachments.extend(row['fields'][f['name']])
                 attachments.extend(row_attachments)
 
-attachments_folder = f"{backup_dir}/attachments"
+attachments_folder = os.path.join(backup_dir, "attachments")
 os.mkdir(attachments_folder)
 
-with open(f"{attachments_folder}/attachments.json", 'w') as attachments_list_file:
+with open(os.path.join(attachments_folder,"attachments.json"), 'w') as attachments_list_file:
     attachments_list_file.write(json.dumps(attachments))
 
 for attachment in attachments:
-    attachment_folder = f"{attachments_folder}/{attachment['id']}"
+    attachment_folder = os.path.join(attachments_folder, attachment['id'])
     if os.path.exists(attachment_folder):
         continue
     os.mkdir(attachment_folder)
 
-    with open(f"{attachment_folder}/metadata.json", 'w+') as attachment_metadata_file:
+    with open(os.path.join(attachment_folder, "metadata.json"), 'w+') as attachment_metadata_file:
         attachment_metadata_file.write(json.dumps(attachment))
     
     r = requests.get(attachment['url'], stream=True)
     if r.ok:
-        print("saving to", os.path.abspath(f"{attachment_folder}/{attachment['filename']}"))
-        with open(f"{attachment_folder}/{attachment['filename']}", 'wb') as f:
+        attachment_path = os.path.join(attachment_folder, attachment['filename'])
+        print("saving to", os.path.abspath(attachment_path))
+        with open(attachment_path, 'wb') as f:
             for chunk in r.iter_content(chunk_size=1024 * 8):
                 if chunk:
                     f.write(chunk)
